@@ -1,0 +1,33 @@
+server:
+  port: 8081
+spring:
+  mvc:
+    pathmatch:
+      matching-strategy: ANT_PATH_MATCHER
+  application:
+    name: graphql-spqr-explore-service
+  datasource:
+    driver-class-name: oracle.jdbc.driver.OracleDriver
+    url: jdbc:oracle:thin:@localhost:1521/orclpdb
+    username: xlys
+    password: 123789abczy
+    #     Hikari only populated with SpringBoot
+    #    hikari:
+    #      pool-name: hikari-jdbc-pool
+    #      minimum-idle: 10
+    #      maximum-pool-size: 20
+    #      connection-timeout: 60000
+    #      idle-timeout: 60000
+    #      validation-timeout: 3000
+    #      max-lifetime: 600000
+  jpa:
+    show-sql: true
+    open-in-view: false
+graphql:
+  spqr:
+    gui:
+      enabled: true
+      endpoint: /gui
+    customized:
+      dispatcher:
+        enabled: true
