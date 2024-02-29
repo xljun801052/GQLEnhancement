@@ -3,7 +3,7 @@ package org.xlys.graphqlspqr.graphqlspqrwithspringboot.service.resolver;
 import io.leangen.graphql.annotations.GraphQLQuery;
 import io.leangen.graphql.spqr.spring.annotations.GraphQLApi;
 import lombok.NoArgsConstructor;
-import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RestController;
 import org.xlys.graphqlspqr.graphqlspqrwithspringboot.gqltypes.inheritedTypes.ChildType;
 import org.xlys.graphqlspqr.graphqlspqrwithspringboot.gqltypes.inheritedTypes.ParentType;
 
@@ -16,7 +16,8 @@ import java.util.Random;
  * @author Administrator
  * @date 2024/1/26 4:59 PM
  */
-@Service
+//@Service
+@RestController
 @GraphQLApi
 @NoArgsConstructor
 public class InheritedPropertiesFeatureResolver {

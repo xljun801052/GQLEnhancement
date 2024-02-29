@@ -1,25 +1,36 @@
 package org.xlys.graphqlspqr.graphqlspqrwithspringboot.config.graphql;
 
-import graphql.schema.GraphQLFieldDefinition;
 import graphql.schema.GraphQLSchema;
+import io.leangen.geantyref.GenericTypeReflector;
+import io.leangen.graphql.spqr.spring.annotations.GraphQLApi;
+import io.leangen.graphql.spqr.spring.annotations.WithResolverBuilder;
 import io.leangen.graphql.spqr.spring.autoconfigure.BaseAutoConfiguration;
+import io.leangen.graphql.util.Utils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.aop.support.AopUtils;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.ResolvableType;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.core.type.StandardMethodMetadata;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-import org.springframework.web.util.pattern.PathPatternParser;
 import org.xlys.graphqlspqr.graphqlspqrwithspringboot.service.resolver.InheritedPropertiesFeatureResolver;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * TODO
@@ -32,6 +43,8 @@ import java.util.List;
 @ConditionalOnProperty(value = "graphql.spqr.customized.dispatcher.enabled", havingValue = "true", matchIfMissing = false)
 public class GraphqlPreDispatcher {
 
+    @Resource
+    ConfigurableApplicationContext context;
 
     @Resource
     GraphQLSchema schema;
@@ -52,9 +65,48 @@ public class GraphqlPreDispatcher {
 //            ArrayList<Object> operationSourcesApi = new ArrayList<>();
 //            operationSourcesApi.addAll(queryFieldDefinitions);
 //            operationSourcesApi.addAll(mutationFieldDefinitions);
-            registerDynamicApi("test", InheritedPropertiesFeatureResolver.class,"getParent");
+
+            /**
+             * findGraphQLApiComponents
+             * */
+            final String[] apiBeanNames = context.getBeanNamesForAnnotation(GraphQLApi.class);
+            final ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
+
+//            Map<String, BaseAutoConfiguration.SpqrBean> result = new HashMap<>();
+            for (String beanName : apiBeanNames) {
+                BeanDefinition beanDefinition = beanFactory.getBeanDefinition(beanName);
+                AnnotatedType beanType;
+                Set<WithResolverBuilder> resolverBuilders;
+                if (beanDefinition.getSource() instanceof StandardMethodMetadata) {
+                    StandardMethodMetadata metadata = (StandardMethodMetadata) beanDefinition.getSource();
+                    beanType = metadata.getIntrospectedMethod().getAnnotatedReturnType();
+                    resolverBuilders = AnnotatedElementUtils.findMergedRepeatableAnnotations(metadata.getIntrospectedMethod(), WithResolverBuilder.class);
+                } else {
+                    BeanDefinition current = beanDefinition;
+                    BeanDefinition originatingBeanDefinition = current;
+                    while (current != null) {
+                        originatingBeanDefinition = current;
+                        current = current.getOriginatingBeanDefinition();
+                    }
+                    ResolvableType resolvableType = originatingBeanDefinition.getResolvableType();
+                    if (resolvableType != ResolvableType.NONE && Utils.isNotEmpty(originatingBeanDefinition.getBeanClassName())
+                            //Sanity check only -- should never happen
+                            && !originatingBeanDefinition.getBeanClassName().startsWith("org.springframework.")) {
+                        beanType = GenericTypeReflector.annotate(resolvableType.getType());
+                    } else {
+                        beanType = GenericTypeReflector.annotate(AopUtils.getTargetClass(context.getBean(beanName)));
+                    }
+                    resolverBuilders = AnnotatedElementUtils.findMergedRepeatableAnnotations(beanType, WithResolverBuilder.class);
+                }
+//                List<BaseAutoConfiguration.ResolverBuilderBeanCriteria> builders = resolverBuilders.stream()
+//                        .map(builder -> new BaseAutoConfiguration.ResolverBuilderBeanCriteria(builder.value(), builder.qualifierValue(), builder.qualifierType()))
+//                        .collect(Collectors.toList());
+//                result.put(beanName, new BaseAutoConfiguration.SpqrBean(context, beanName, beanType, builders));
+            }
+
+            registerDynamicApi("test", InheritedPropertiesFeatureResolver.class, "getParent");
             //note: ERROR--> IllegalArgumentException: Expected parsed RequestPath in request attribute "org.springframework.web.util.ServletRequestPathUtils.PATH".
-            requestMappingHandlerMapping.getHandlerMethods();
+//            requestMappingHandlerMapping.getHandlerMethods();
         } catch (Exception e) {
             log.error("Error ");
             e.printStackTrace();
@@ -81,9 +133,9 @@ public class GraphqlPreDispatcher {
                     .build();
 
             assert method != null;
-            HandlerMethod handlerMethod = new HandlerMethod(controllerInstance, method);
+//            HandlerMethod handlerMethod = new HandlerMethod(controllerInstance, method);
 
-            requestMappingHandlerMapping.registerMapping(mapping, handlerMethod, method);
+            requestMappingHandlerMapping.registerMapping(mapping, controllerInstance, method);
         } catch (Exception e) {
             e.printStackTrace();
         }
